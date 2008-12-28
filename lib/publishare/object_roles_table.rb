@@ -7,6 +7,7 @@ module Authorization
     module UserExtensions
       def self.included( recipient )
         recipient.extend( ClassMethods )
+        recipient.extend( InstanceMethods )
       end
 
       module ClassMethods
@@ -21,11 +22,12 @@ module Authorization
       module InstanceMethods
         # If roles aren't explicitly defined in user class then check roles table
         def has_role?( role_name, authorizable_obj = nil )
+          roles = self.is_a?(Class) ? Role : self.roles
           if authorizable_obj.nil?
-            self.roles.find_by_name( role_name ) || self.roles.member?(get_role( role_name, authorizable_obj )) ? true : false    # If we ask a general role question, return true if any role is defined.
+            roles.find_by_name( role_name ) || roles.member?(get_role( role_name, authorizable_obj )) ? true : false    # If we ask a general role question, return true if any role is defined.
           else
             role = get_role( role_name, authorizable_obj )
-            role ? self.roles.exists?( role.id ) : false
+            role ? roles.exists?( role.id ) : false
           end
         end
 
@@ -40,7 +42,9 @@ module Authorization
               role = Role.create( :name => role_name )
             end
           end
-          self.roles << role if role and not self.roles.exists?( role.id )
+          unless self.is_a?(Class)
+            self.roles << role if role and not self.roles.exists?( role.id )
+          end
         end
 
         def has_no_role( role_name, authorizable_obj = nil  )
@@ -127,7 +131,7 @@ module Authorization
         def acts_as_authorizable
           has_many :accepted_roles, :as => :authorizable, :class_name => 'Role'
 
-          has_many :users, :finder_sql => 'SELECT DISTINCT users.* FROM users INNER JOIN roles_users ON user_id = users.id INNER JOIN roles ON roles.id = role_id WHERE authorizable_type = \'#{self.class.base_class.to_s}\' AND authorizable_id = #{id}', :counter_sql => 'SELECT COUNT(DISTINCT users.id) FROM users INNER JOIN roles_users ON user_id = users.id INNER JOIN roles ON roles.id = role_id WHERE authorizable_type = \'#{self.class.base_class.to_s}\' AND authorizable_id = #{id}', :readonly => true
+          has_many :users, :finder_sql => 'SELECT DISTINCT users.* FROM users INNER JOIN roles_users ON user_id = users.id INNER JOIN roles ON roles.id = role_id WHERE authorizable_type = \'#{self.class.base_class.to_s}\' AND authorizable_id = #{id}', :counter_sql => 'SELECT COUNT(DISTINCT users.id) FROM users INNER JOIN roles_users ON user_id = users.id INNER JOIN roles ON roles.id = role_id WHERE authorizable_type = \'#{self.class.base_class.to_s}\' AND authorizable_id = #{id}' #, :readonly => true
 
           before_destroy :remove_user_roles
 
