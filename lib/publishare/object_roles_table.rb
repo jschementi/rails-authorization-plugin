@@ -24,7 +24,7 @@ module Authorization
         def has_role?( role_name, authorizable_obj = nil )
           roles = self.is_a?(Class) ? Role : self.roles
           if authorizable_obj.nil?
-            roles.find_by_name( role_name ) || roles.member?(get_role( role_name, authorizable_obj )) ? true : false    # If we ask a general role question, return true if any role is defined.
+            roles.find_by_name( role_name ) || (roles.is_a?(Array) && roles.member?(get_role( role_name, authorizable_obj ))) ? true : false    # If we ask a general role question, return true if any role is defined.
           else
             role = get_role( role_name, authorizable_obj )
             role ? roles.exists?( role.id ) : false
@@ -49,7 +49,8 @@ module Authorization
 
         def has_no_role( role_name, authorizable_obj = nil  )
           role = get_role( role_name, authorizable_obj )
-          self.roles.delete( role ) if role
+          roles = self.is_a?(Class) ? Role : self.roles
+          roles.delete( role ) if role
           delete_role_if_empty( role )
         end
 
